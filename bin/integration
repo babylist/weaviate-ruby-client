@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Run the integration suite against a real Weaviate.
+#
+#   bin/integration docker [WEAVIATE_VERSION]   # full suite: docker compose stack from ci/ (needs Docker)
+#   bin/integration native [WEAVIATE_VERSION]   # no Docker: native Weaviate binaries on :8080/:50051 and an
+#                                               # RBAC instance on :8092/:50063; specs needing other
+#                                               # containers (contextionary, okta, cluster) are skipped
+#   bin/integration running                     # use whatever is already listening on :8080/:50051
+#
+# Extra args after the mode/version are passed to rspec (e.g. a spec file).
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+mode="${1:-docker}"; shift || true
+version="1.36.24"
+if [[ "${1:-}" =~ ^[0-9]+\.[0-9]+ ]]; then version="$1"; shift; fi
+
+case "$mode" in
+  docker)
+    command -v docker >/dev/null || { echo "Docker not found. Install Docker/Colima/OrbStack or use: bin/integration native" >&2; exit 1; }
+    ./ci/start_weaviate.sh "$version"
+    trap './ci/stop_weaviate.sh "$version"' EXIT
+    WEAVIATE_INTEGRATION=1 bundle exec rspec --tag integration "${@:-spec/integration}"
+    ;;
+  native)
+    port="${WEAVIATE_PORT:-8080}"; grpc_port="${WEAVIATE_GRPC_PORT:-50051}"
+    bundle exec ruby bin/weaviate-native start "$version" --port "$port" --grpc-port "$grpc_port"
+    # second instance with API-key auth + RBAC on the ports of ci/docker-compose-rbac.yml
+    bundle exec ruby bin/weaviate-native start "$version" --name rbac --profile rbac --port 8092 --grpc-port 50063
+    trap 'bundle exec ruby bin/weaviate-native stop; bundle exec ruby bin/weaviate-native stop --name rbac' EXIT
+    WEAVIATE_INTEGRATION=1 WEAVIATE_NATIVE=1 WEAVIATE_PORT="$port" WEAVIATE_GRPC_PORT="$grpc_port" \
+      WEAVIATE_PORT_MAP="8092=8092,50063=50063" bundle exec rspec --tag integration "${@:-spec/integration}"
+    ;;
+  running)
+    WEAVIATE_INTEGRATION=1 bundle exec rspec --tag integration "${@:-spec/integration}"
+    ;;
+  *)
+    echo "unknown mode: $mode (docker|native|running)" >&2; exit 1 ;;
+esac

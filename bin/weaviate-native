@@ -1,0 +1,137 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Start/stop a native (non-Docker) Weaviate on :8080/:50051 for the integration specs,
+# configured like ci/docker-compose.yml minus the contextionary container.
+#
+#   bundle exec ruby bin/weaviate-native start [VERSION] [--port 8080] [--grpc-port 50051] [--name default]
+#   bundle exec ruby bin/weaviate-native stop [--name default]
+#
+# Several instances can run side by side with different --name/--port/--grpc-port;
+# point the integration specs at one with WEAVIATE_PORT / WEAVIATE_GRPC_PORT.
+$LOAD_PATH.unshift File.expand_path("../lib", __dir__)
+require "weaviate"
+require "fileutils"
+require "net/http"
+
+require "optparse"
+
+OPTS = { port: 8080, grpc_port: 50_051, name: "default", profile: "default" }
+ARGS = OptionParser.new do |o|
+  o.on("--port PORT", Integer) { |v| OPTS[:port] = v }
+  o.on("--grpc-port PORT", Integer) { |v| OPTS[:grpc_port] = v }
+  o.on("--name NAME") { |v| OPTS[:name] = v }
+  o.on("--profile PROFILE", "default | rbac (mirrors ci/docker-compose-rbac.yml)") { |v| OPTS[:profile] = v }
+end.parse(ARGV)
+
+ROOT = File.expand_path("..", __dir__)
+STATE_DIR = File.join(ROOT, "tmp", "weaviate-native", OPTS[:name])
+PID_FILE = File.join(STATE_DIR, "weaviate.pid")
+PORT = OPTS[:port]
+GRPC_PORT = OPTS[:grpc_port]
+# cluster ports derived from the HTTP port so instances don't collide
+BASE = 20_000 + ((PORT % 1000) * 10)
+
+def ready?
+  Net::HTTP.get_response(URI("http://127.0.0.1:#{PORT}/v1/.well-known/ready")).code == "200"
+rescue StandardError
+  false
+end
+
+def start(version)
+  abort "Weaviate already running (pid #{File.read(PID_FILE)})" if File.exist?(PID_FILE)
+  abort "Something is already listening on :#{PORT}" if ready?
+
+  FileUtils.mkdir_p(STATE_DIR)
+  data_path = File.join(STATE_DIR, "data")
+  FileUtils.rm_rf(data_path)
+  options = Weaviate::Embedded::EmbeddedOptions.new(
+    version: version, port: PORT, grpc_port: GRPC_PORT, hostname: "127.0.0.1",
+    persistence_data_path: data_path
+  )
+  db = Weaviate::Embedded::EmbeddedV4.new(options)
+  db.ensure_weaviate_binary_exists
+
+  env = {
+    "QUERY_DEFAULTS_LIMIT" => "25",
+    "AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED" => "true",
+    "PERSISTENCE_DATA_PATH" => data_path,
+    "ENABLE_MODULES" => "backup-filesystem,generative-dummy,generative-anyscale,reranker-dummy,reranker-cohere",
+    "BACKUP_FILESYSTEM_PATH" => File.join(STATE_DIR, "backups"),
+    "CLUSTER_HOSTNAME" => "node1",
+    "CLUSTER_GOSSIP_BIND_PORT" => BASE.to_s,
+    "CLUSTER_DATA_BIND_PORT" => (BASE + 1).to_s,
+    "RAFT_PORT" => (BASE + 2).to_s,
+    "RAFT_INTERNAL_RPC_PORT" => (BASE + 3).to_s,
+    "RAFT_JOIN" => "node1:#{BASE + 2}",
+    "PROFILING_PORT" => (BASE + 4).to_s,
+    "RAFT_BOOTSTRAP_EXPECT" => "1",
+    "CLUSTER_IN_LOCALHOST" => "true",
+    "CLUSTER_ADVERTISE_ADDR" => "127.0.0.1",
+    "GRPC_PORT" => GRPC_PORT.to_s,
+    "AUTOSCHEMA_ENABLED" => "false",
+    "DISABLE_TELEMETRY" => "true",
+    "DISABLE_LAZY_LOAD_SHARDS" => "true",
+    "GRPC_MAX_MESSAGE_SIZE" => "100000000",
+    "OBJECTS_TTL_DELETE_SCHEDULE" => "@every 12h",
+    "EXPORT_ENABLED" => "true",
+    "EXPORT_DEFAULT_PATH" => File.join(data_path, "exports"),
+    "ENABLE_EXPERIMENTAL_ALTER_SCHEMA_DROP_VECTOR_INDEX_ENDPOINT" => "true"
+  }
+  if OPTS[:profile] == "rbac"
+    env.merge!(
+      "ENABLE_MODULES" => "generative-dummy,reranker-dummy",
+      "AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED" => "false",
+      "AUTHENTICATION_APIKEY_ENABLED" => "true",
+      "AUTHENTICATION_APIKEY_ALLOWED_KEYS" => "admin-key,custom-key",
+      "AUTHENTICATION_APIKEY_USERS" => "admin-user,custom-user",
+      "AUTHORIZATION_ADMIN_USERS" => "admin-user",
+      "AUTHORIZATION_ENABLE_RBAC" => "true",
+      "AUTHENTICATION_DB_USERS_ENABLED" => "true",
+      "AUTHENTICATION_OIDC_ENABLED" => "true",
+      "AUTHENTICATION_OIDC_CLIENT_ID" => "Peuc12y02UA0eAED1dqSjE5HtGUrpBsx",
+      "AUTHENTICATION_OIDC_ISSUER" => "https://auth.weaviate.cloud/Peuc12y02UA0eAED1dqSjE5HtGUrpBsx",
+      "AUTHENTICATION_OIDC_USERNAME_CLAIM" => "email",
+      "AUTHENTICATION_OIDC_GROUPS_CLAIM" => "roles"
+    )
+  end
+  log = File.join(STATE_DIR, "weaviate.log")
+  pid = Process.spawn(env, db.weaviate_binary_path, "--host", "127.0.0.1", "--port", PORT.to_s, "--scheme", "http",
+                      "--write-timeout=600s", out: log, err: log, pgroup: true)
+  Process.detach(pid)
+  File.write(PID_FILE, pid.to_s)
+
+  60.times do
+    if ready?
+      puts "Weaviate #{version} ready on :#{PORT}/:#{GRPC_PORT} (pid #{pid}, log #{log})"
+      return
+    end
+    sleep 1
+  end
+  stop
+  abort "Weaviate did not become ready within 60s; see #{log}"
+end
+
+def stop
+  return puts("not running") unless File.exist?(PID_FILE)
+
+  pid = File.read(PID_FILE).to_i
+  begin
+    Process.kill("TERM", pid)
+    20.times do
+      Process.kill(0, pid)
+      sleep 0.5
+    end
+    Process.kill("KILL", pid)
+  rescue Errno::ESRCH
+    nil
+  end
+  File.delete(PID_FILE)
+  puts "stopped"
+end
+
+case ARGS[0]
+when "start" then start(ARGS[1] || "1.36.24")
+when "stop" then stop
+else abort "usage: weaviate-native start [VERSION] | stop"
+end

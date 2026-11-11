@@ -1,0 +1,102 @@
+{
+  "class": "Something",
+  "description": "It's something!",
+  "invertedIndexConfig": {
+    "bm25": {
+      "b": 0.8,
+      "k1": 1.3
+    },
+    "cleanupIntervalSeconds": 61,
+    "indexPropertyLength": true,
+    "indexTimestamps": true,
+    "stopwords": {
+      "additions": null,
+      "preset": "en",
+      "removals": [
+        "the"
+      ]
+    }
+  },
+  "moduleConfig": {
+    "generative-openai": {},
+    "text2vec-contextionary": {
+      "vectorizeClassName": true
+    }
+  },
+  "multiTenancyConfig": {
+    "autoTenantActivation": false,
+    "autoTenantCreation": false,
+    "enabled": false
+  },
+  "properties": [
+    {
+      "dataType": [
+        "text[]"
+      ],
+      "indexFilterable": true,
+      "indexRangeFilters": false,
+      "indexSearchable": true,
+      "moduleConfig": {
+        "text2vec-contextionary": {
+          "skip": false,
+          "vectorizePropertyName": false
+        }
+      },
+      "name": "names",
+      "tokenization": "word"
+    }
+  ],
+  "replicationConfig": {
+    "asyncEnabled": false,
+    "factor": 1
+  },
+  "shardingConfig": {
+    "virtualPerPhysical": 128,
+    "desiredCount": 1,
+    "actualCount": 1,
+    "desiredVirtualCount": 128,
+    "actualVirtualCount": 128,
+    "key": "_id",
+    "strategy": "hash",
+    "function": "murmur3"
+  },
+  "vectorIndexConfig": {
+    "skip": true,
+    "cleanupIntervalSeconds": 300,
+    "maxConnections": 64,
+    "efConstruction": 128,
+    "ef": -2,
+    "dynamicEfMin": 101,
+    "dynamicEfMax": 501,
+    "dynamicEfFactor": 9,
+    "vectorCacheMaxObjects": 1000000000001,
+    "flatSearchCutoff": 40001,
+    "distance": "cosine",
+    "pq": {
+      "enabled": true,
+      "bitCompression": true,
+      "segments": 1,
+      "centroids": 257,
+      "trainingLimit": 100001,
+      "encoder": {
+        "type": "tile",
+        "distribution": "normal"
+      }
+    },
+    "bq": {
+      "enabled": false
+    },
+    "sq": {
+      "enabled": false,
+      "trainingLimit": 100000,
+      "rescoreLimit": 20
+    },
+    "rq": {
+      "enabled": false,
+      "bits": 8,
+      "rescoreLimit": 20
+    }
+  },
+  "vectorIndexType": "hnsw",
+  "vectorizer": "text2vec-contextionary"
+}
