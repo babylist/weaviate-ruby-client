@@ -99,7 +99,7 @@ module Weaviate
         # Args:
         #     name: The name of the named vector.
         #     vector_index_config: The configuration for Weaviate's vector index. Use wvc.config.Configure.VectorIndex to create a vector index configuration. None by default
-        def self.none(name, vector_index_config: nil)
+        def self.none(name_ = nil, name: name_, vector_index_config: nil)
           NamedVectorConfigCreate.new(
             name: name,
             vectorizer: VectorizerConfigCreate.new(vectorizer: Vectorizers::NONE),
@@ -115,7 +115,7 @@ module Weaviate
         #     module_config: The configuration of the custom module to use.
         #     source_properties: Which properties should be included when vectorizing. By default all text properties are included.
         #     vector_index_config: The configuration for Weaviate's vector index. Use wvc.config.Configure.VectorIndex to create a vector index configuration. None by default
-        def self.custom(name, module_name:, module_config: nil, source_properties: nil, vector_index_config: nil)
+        def self.custom(name_ = nil, name: name_, module_name:, module_config: nil, source_properties: nil, vector_index_config: nil)
           NamedVectorConfigCreate.new(
             name: name,
             source_properties: source_properties,
@@ -141,7 +141,8 @@ module Weaviate
         #     model: The model to use. Defaults to `None`, which uses the server-defined default.
         #     dimensions: Number of dimensions. Applicable to v3 OpenAI models only. Defaults to `None`, which uses the server-defined default.
         def self.text2colbert_jinaai(
-          name,
+          name_ = nil,
+          name: name_,
           dimensions: nil,
           model: nil,
           source_properties: nil,
@@ -175,7 +176,8 @@ module Weaviate
         #     vectorize_collection_name: Whether to vectorize the collection name. Defaults to `True`.
         #     base_url: The base URL to use where API requests should go. Defaults to `None`, which uses the server-defined default.
         def self.text2vec_cohere(
-          name,
+          name_ = nil,
+          name: name_,
           base_url: nil,
           model: nil,
           truncate: nil,
@@ -212,7 +214,8 @@ module Weaviate
         #     image_fields: The image fields to use in vectorization.
         #     text_fields: The text fields to use in vectorization.
         def self.multi2vec_cohere(
-          name,
+          name_ = nil,
+          name: name_,
           base_url: nil,
           image_fields: nil,
           model: nil,
@@ -246,7 +249,8 @@ module Weaviate
         #     vector_index_config: The configuration for Weaviate's vector index. Use wvc.config.Configure.VectorIndex to create a vector index configuration. None by default
         #     vectorize_collection_name: Whether to vectorize the collection name. Defaults to `True`.
         def self.text2vec_contextionary(
-          name,
+          name_ = nil,
+          name: name_,
           source_properties: nil,
           vector_index_config: nil,
           vectorize_collection_name: true
@@ -272,7 +276,8 @@ module Weaviate
         #     endpoint: The endpoint to use.
         #     instruction: The instruction strategy to use. Defaults to `None`, which uses the server-defined default.
         def self.text2vec_databricks(
-          name,
+          name_ = nil,
+          name: name_,
           endpoint:,
           instruction: nil,
           source_properties: nil,
@@ -304,7 +309,8 @@ module Weaviate
         #     vector_index_config: The configuration for Weaviate's vector index. Use wvc.config.Configure.VectorIndex to create a vector index configuration. None by default
         #     vectorize_collection_name: Whether to vectorize the collection name. Defaults to `True`.
         def self.text2vec_mistral(
-          name,
+          name_ = nil,
+          name: name_,
           base_url: nil,
           model: nil,
           source_properties: nil,
@@ -338,7 +344,8 @@ module Weaviate
         #     api_endpoint: The base URL to use where API requests should go. Defaults to `None`, which uses the server-defined default.
         #         Docker users may need to specify an alias, such as `http://host.docker.internal:11434` so that the container can access the host machine.
         def self.text2vec_ollama(
-          name,
+          name_ = nil,
+          name: name_,
           api_endpoint: nil,
           model: nil,
           source_properties: nil,
@@ -375,7 +382,8 @@ module Weaviate
         #     dimensions: Number of dimensions. Applicable to v3 OpenAI models only. Defaults to `None`, which uses the server-defined default.
         #     endpoint: The API path to append to `base_url`, e.g. `/api/v3/embeddings`. Defaults to `None`, which uses the server-defined default.
         def self.text2vec_openai(
-          name,
+          name_ = nil,
+          name: name_,
           base_url: nil,
           dimensions: nil,
           endpoint: nil,
@@ -418,7 +426,8 @@ module Weaviate
         #     vectorize_collection_name: Whether to vectorize the collection name. Defaults to `True`.
         #     dimensions: The dimensionality of the vectors. Defaults to `None`, which uses the server-defined default.
         def self.text2vec_aws(
-          name,
+          name_ = nil,
+          name: name_,
           region:,
           endpoint: nil,
           model: nil,
@@ -454,7 +463,7 @@ module Weaviate
         #     name: The name of the named vector.
         #     image_fields: The image fields to use. This is a required field and must match the property fields of the collection that are defined as `DataType.BLOB`.
         #     vector_index_config: The configuration for Weaviate's vector index. Use wvc.config.Configure.VectorIndex to create a vector index configuration. None by default
-        def self.img2vec_neural(name, image_fields:, vector_index_config: nil)
+        def self.img2vec_neural(name_ = nil, name: name_, image_fields:, vector_index_config: nil)
           NamedVectorConfigCreate.new(
             name: name,
             vectorizer: Img2VecNeuralConfig.new(imageFields: image_fields),
@@ -475,7 +484,8 @@ module Weaviate
         #     text_fields: The text fields to use in vectorization.
         #     inference_url: The inference url to use where API requests should go. Defaults to `None`, which uses the server-defined default.
         def self.multi2vec_clip(
-          name,
+          name_ = nil,
+          name: name_,
           inference_url: nil,
           image_fields: nil,
           text_fields: nil,
@@ -512,7 +522,8 @@ module Weaviate
         #     video_interval_seconds: Length of a video interval. Defaults to `None`, which uses the server-defined default.
         #     model_id: The model ID to use. Defaults to `None`, which uses the server-defined default.
         def self.multi2vec_google(
-          name,
+          name_ = nil,
+          name: name_,
           location:,
           project_id:,
           audio_fields: nil,
@@ -559,7 +570,8 @@ module Weaviate
         #     vector_index_config: The configuration for Weaviate's vector index. Use wvc.config.Configure.VectorIndex to create a vector index configuration. None by default
         #     vectorize_collection_name: Whether to vectorize the collection name. Defaults to `True`.
         def self.multi2vec_bind(
-          name,
+          name_ = nil,
+          name: name_,
           audio_fields: nil,
           depth_fields: nil,
           image_fields: nil,
@@ -600,7 +612,8 @@ module Weaviate
         #     image_fields: The image fields to use in vectorization.
         #     text_fields: The text fields to use in vectorization.
         def self.multi2vec_voyageai(
-          name,
+          name_ = nil,
+          name: name_,
           base_url: nil,
           model: nil,
           truncation: nil,
@@ -640,7 +653,8 @@ module Weaviate
         #     image_fields: The image fields to use in vectorization.
         #     text_fields: The text fields to use in vectorization.
         def self.multi2vec_nvidia(
-          name,
+          name_ = nil,
+          name: name_,
           base_url: nil,
           model: nil,
           truncation: nil,
@@ -673,7 +687,7 @@ module Weaviate
         #     reference_properties: The reference properties to use in vectorization, REQUIRED.
         #     method: The method to use. Defaults to `mean`.
         #     vector_index_config: The configuration for Weaviate's vector index. Use wvc.config.Configure.VectorIndex to create a vector index configuration. None by default
-        def self.ref2vec_centroid(name, reference_properties:, method: "mean", vector_index_config: nil)
+        def self.ref2vec_centroid(name_ = nil, name: name_, reference_properties:, method: "mean", vector_index_config: nil)
           NamedVectorConfigCreate.new(
             name: name,
             vectorizer: Ref2VecCentroidConfig.new(referenceProperties: reference_properties, method: method),
@@ -697,7 +711,8 @@ module Weaviate
         #     vector_index_config: The configuration for Weaviate's vector index. Use wvc.config.Configure.VectorIndex to create a vector index configuration. None by default
         #     vectorize_collection_name: Whether to vectorize the collection name. Defaults to `True`.
         def self.text2vec_azure_openai(
-          name,
+          name_ = nil,
+          name: name_,
           resource_name:,
           deployment_id:,
           base_url: nil,
@@ -733,7 +748,8 @@ module Weaviate
         #     vector_index_config: The configuration for Weaviate's vector index. Use wvc.config.Configure.VectorIndex to create a vector index configuration. None by default
         #     vectorize_collection_name: Whether to vectorize the collection name. Defaults to `True`.
         def self.text2vec_gpt4all(
-          name,
+          name_ = nil,
+          name: name_,
           source_properties: nil,
           vector_index_config: nil,
           vectorize_collection_name: true
@@ -764,7 +780,8 @@ module Weaviate
         #     use_gpu: Whether to use the GPU. Defaults to `None`, which uses the server-defined default.
         #     use_cache: Whether to use the cache. Defaults to `None`, which uses the server-defined default.
         def self.text2vec_huggingface(
-          name,
+          name_ = nil,
+          name: name_,
           model: nil,
           passage_model: nil,
           query_model: nil,
@@ -810,7 +827,8 @@ module Weaviate
         #     title_property: The Weaviate property name for the `gecko-002` or `gecko-003` model to use as the title.
         #     location: The Google Vertex AI region to run the model in. Defaults to `None`, which uses the server-defined default.
         def self.text2vec_google(
-          name,
+          name_ = nil,
+          name: name_,
           project_id:,
           api_endpoint: nil,
           model_id: nil,
@@ -851,7 +869,8 @@ module Weaviate
         #     model_id: The model ID to use. Defaults to `None`, which uses the server-defined default.
         #     title_property: The Weaviate property name for the `gecko-002` or `gecko-003` model to use as the title.
         def self.text2vec_google_aistudio(
-          name,
+          name_ = nil,
+          name: name_,
           model_id: nil,
           title_property: nil,
           source_properties: nil,
@@ -891,7 +910,8 @@ module Weaviate
         #     passage_inference_url: The inferenceUrl to use where passage API requests should go. You can use either this and query_inference_url OR inference_url. Defaults to `None`, which uses the server-defined default.
         #     query_inference_url: The inferenceUrl to use where query API requests should go. You can use either this and passage_inference_url OR inference_url. Defaults to `None`, which uses the server-defined default.
         def self.text2vec_transformers(
-          name,
+          name_ = nil,
+          name: name_,
           dimensions: nil,
           pooling_strategy: "masked_mean",
           inference_url: nil,
@@ -929,7 +949,8 @@ module Weaviate
         #     dimensions: The number of dimensions for the generated embeddings. Defaults to `None`, which uses the server-defined default.
         #     model: The model to use. Defaults to `None`, which uses the server-defined default.
         def self.text2vec_jinaai(
-          name,
+          name_ = nil,
+          name: name_,
           base_url: nil,
           dimensions: nil,
           model: nil,
@@ -965,7 +986,8 @@ module Weaviate
         #     image_fields: The image fields to use in vectorization.
         #     text_fields: The text fields to use in vectorization.
         def self.multi2vec_jinaai(
-          name,
+          name_ = nil,
+          name: name_,
           base_url: nil,
           model: nil,
           dimensions: nil,
@@ -1003,7 +1025,8 @@ module Weaviate
         #     base_url: The base URL to use where API requests should go. Defaults to `None`, which uses the server-defined default.
         #     truncate: Whether to truncate the input texts to fit within the context length. Defaults to `None`, which uses the server-defined default.
         def self.text2vec_voyageai(
-          name,
+          name_ = nil,
+          name: name_,
           model: nil,
           base_url: nil,
           truncate: nil,
@@ -1026,7 +1049,8 @@ module Weaviate
         end
 
         def self.text2vec_weaviate(
-          name,
+          name_ = nil,
+          name: name_,
           model: nil,
           base_url: nil,
           dimensions: nil,
@@ -1063,7 +1087,8 @@ module Weaviate
         #     base_url: The base URL to use where API requests should go. Defaults to `None`, which uses the server-defined default.
         #     truncate: Whether to truncate the input texts to fit within the context length. Defaults to `None`, which uses the server-defined default.
         def self.text2vec_nvidia(
-          name,
+          name_ = nil,
+          name: name_,
           model: nil,
           base_url: nil,
           truncate: nil,
@@ -1096,7 +1121,8 @@ module Weaviate
         #     vectorize_collection_name: Whether to vectorize the collection name. Defaults to `True`.
         #     inference_url: The inference url to use where API requests should go. Defaults to `None`, which uses the server-defined default.
         def self.text2vec_model2vec(
-          name,
+          name_ = nil,
+          name: name_,
           source_properties: nil,
           vector_index_config: nil,
           vectorize_collection_name: true,
@@ -1125,7 +1151,7 @@ module Weaviate
         # Args:
         #     name: The name of the named vector.
         #     vector_index_config: The configuration for Weaviate's vector index. Use `wvc.config.Reconfigure.VectorIndex` to create a vector index configuration. `None` by default
-        def self.update(name, vector_index_config:)
+        def self.update(name_ = nil, name: name_, vector_index_config:)
           NamedVectorConfigUpdate.new(name: name, vector_index_config: vector_index_config)
         end
       end
