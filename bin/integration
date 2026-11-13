@@ -8,12 +8,26 @@
 #   bin/integration running                     # use whatever is already listening on :8080/:50051
 #
 # Extra args after the mode/version are passed to rspec (e.g. a spec file).
+# SHARD=i/N runs only the i-th of N balanced groups of spec files (used by CI).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 mode="${1:-docker}"; shift || true
 version="1.36.24"
 if [[ "${1:-}" =~ ^[0-9]+\.[0-9]+ ]]; then version="$1"; shift; fi
+
+if [[ -n "${SHARD:-}" && $# -eq 0 ]]; then
+  # balance shards by file size (a rough proxy for runtime): biggest file to the lightest shard
+  read -r -a shard_files <<< "$(ruby -e '
+    i, n = ENV["SHARD"].split("/").map(&:to_i)
+    files = Dir["spec/integration/*_spec.rb"].sort_by { |f| -File.size(f) }
+    bins = Array.new(n) { [0, []] }
+    files.each { |f| b = bins.min_by(&:first); b[0] += File.size(f); b[1] << f }
+    puts bins[i - 1][1].sort.join(" ")
+  ')"
+  set -- "${shard_files[@]}"
+  echo "shard $SHARD: $*"
+fi
 
 case "$mode" in
   docker)
