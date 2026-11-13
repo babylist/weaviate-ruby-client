@@ -308,3 +308,20 @@ RSpec.describe "test_config.py: named vectors and Configure.Vectors" do
     end
   end
 end
+
+RSpec.describe "NamedVectors factories: vector name" do
+  nv = Weaviate::Classes::Config::Configure::NamedVectors
+
+  it "accepts the name positionally or as name: (Python allows both)" do
+    positional = nv.text2vec_contextionary("all", vectorize_collection_name: false)
+    keyword = nv.text2vec_contextionary(name: "all", vectorize_collection_name: false)
+    expect(keyword.name).to eq("all")
+    expect(keyword.to_dict).to eq(positional.to_dict)
+    expect(nv.none(name: "x").name).to eq("x")
+    expect(nv.custom(name: "c", module_name: "m").name).to eq("c")
+  end
+
+  it "still requires a name" do
+    expect { nv.none }.to raise_error(Weaviate::Classes::Config::ValidationError, /name must be a String/)
+  end
+end
