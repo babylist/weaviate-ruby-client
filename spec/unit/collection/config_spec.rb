@@ -77,7 +77,7 @@ RSpec.describe "collection config" do # rubocop:disable RSpec/DescribeClass
       vector_config: c::Configure::Vectors.text2vec_transformers
     )
     warnings = capture_warnings { config.to_dict }
-    expect(warnings).to include(a_string_including("Dep032"))
+    expect(warnings).to include(a_string_including("Dep032").and(including("source_properties")))
   end
 
   describe "test_config_property_flags_do_not_warn" do
