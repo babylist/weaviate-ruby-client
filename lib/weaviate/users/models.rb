@@ -45,7 +45,7 @@ module Weaviate
       Time.parse(value)
     end
 
-    def self.parse_last_used_at(value)
+    def self.parse_optional_timestamp(value)
       return nil if value.nil?
 
       dt = parse_time(value)
@@ -58,8 +58,8 @@ module Weaviate
         role_names: user["roles"],
         active: user["active"],
         user_type: UserTypes.from(user["dbUserType"]),
-        created_at: parse_time(user["createdAt"]),
-        last_used_time: parse_last_used_at(user["lastUsedAt"]),
+        created_at: parse_optional_timestamp(user["createdAt"]),
+        last_used_time: parse_optional_timestamp(user["lastUsedAt"]),
         api_key_first_letters: user["apiKeyFirstLetters"]
       )
     end

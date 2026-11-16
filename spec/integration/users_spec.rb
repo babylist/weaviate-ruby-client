@@ -84,6 +84,7 @@ module Batch5Specs
       expect(user.user_id).to eq("admin-user")
       expect(user.active).to be true
       expect(user.user_type).to eq(Models::UserTypes::DB_STATIC)
+      expect(user.created_at).to be_nil
     end
 
     it "test_create_user_and_get" do
@@ -198,6 +199,9 @@ module Batch5Specs
       users = client.users.db.list_all
       dynamic_users = users.select { |user| user.user_id.start_with?("list-all-") }
       expect(dynamic_users.length).to eq(5)
+      admin_user = users.find { |user| user.user_id == "admin-user" }
+      expect(admin_user).not_to be_nil
+      expect(admin_user.created_at).to be_nil
       5.times { |i| client.users.db.delete(user_id: "list-all-#{i}") }
     end
 
