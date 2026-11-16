@@ -55,8 +55,11 @@ RSpec.describe "batch (mock)" do
   # MockFailedObjectWeaviateService: rejects every other object, starting with the first.
   def install_failed_object_service
     service = Class.new do
+      attr_reader :references
+
       def initialize
         @seen = 0
+        @references = []
       end
 
       def batch_stream(requests, _call)
@@ -64,6 +67,7 @@ RSpec.describe "batch (mock)" do
           y << Weaviate::V1::BatchStreamReply.new(started: Weaviate::V1::BatchStreamReply::Started.new)
           requests.each do |request|
             if request.has_data?
+              @references.concat(request.data.references.values.to_a)
               uuids = []
               errors = []
               successes = []
@@ -124,5 +128,19 @@ RSpec.describe "batch (mock)" do
     end
     expect(collection.batch.failed_objects.length).to eq(2)
     expect(collection.batch.results.objs.has_errors).to be(true)
+  end
+
+  it "sends references from an object that failed to import" do
+    collection = client.collections.use(mock_class["class"])
+    service = install_failed_object_service
+    failed_uuid = "00000000-0000-0000-0000-000000000001"
+    Timeout.timeout(15) do
+      collection.batch.stream do |batch|
+        batch.add_object({ "name" => "Object 1" }, uuid: failed_uuid)
+        batch.add_reference(failed_uuid, from_property: "ref", to: "00000000-0000-0000-0000-000000000002")
+      end
+    end
+    expect(collection.batch.failed_objects.map { |err| err.object_.uuid }).to eq([failed_uuid])
+    expect(service.references.map(&:from_uuid)).to eq([failed_uuid])
   end
 end
