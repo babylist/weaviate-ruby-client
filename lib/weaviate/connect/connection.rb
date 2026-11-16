@@ -142,10 +142,13 @@ module Weaviate
         unless @embedded_db.nil?
           begin
             wait_for_weaviate(10)
-          rescue Exceptions::WeaviateStartUpError
+          rescue Exceptions::WeaviateStartUpError => e
             @embedded_db.stop
             @connected = false
-            raise
+            hint = @embedded_db.existing_data_hint
+            raise if hint.nil?
+
+            raise Exceptions::WeaviateStartUpError, "#{e.message} #{hint}"
           end
         end
 
