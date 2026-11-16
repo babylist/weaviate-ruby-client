@@ -259,9 +259,15 @@ module Weaviate
       rescue ::GRPC::PermissionDenied => e
         raise Exceptions::InsufficientPermissionsError, e
       rescue ::GRPC::BadStatus => e
-        raise Exceptions::WeaviateQueryError.new(e.details.to_s, "GRPC search")
+        raise search_error(request, e.details.to_s)
       rescue Exceptions::WeaviateRetryError => e
-        raise Exceptions::WeaviateQueryError.new(e.message, "GRPC search")
+        raise search_error(request, e.message)
+      end
+
+      def search_error(request, message)
+        return Exceptions::WeaviateGenerativeQueryError.new(message) if request.has_generative?
+
+        Exceptions::WeaviateQueryError.new(message, "GRPC search")
       end
 
       # Returns { index => error message } for failed objects.
