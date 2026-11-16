@@ -48,6 +48,19 @@ RSpec.describe "authentication against a mock Weaviate" do
     httpserver.check_assertions
   end
 
+  it "test_oidc_session_follows_connection_config" do
+    httpserver.expect_request("/auth").respond_with_json({ "access_token" => access_token, "expires_in" => 500 })
+    httpserver.expect_request("/v1/schema", headers: { "Authorization" => "Bearer #{access_token}" })
+              .respond_with_json({ "classes" => [] })
+    unreachable_proxy = "http://127.0.0.1:9"
+    stub_const("ENV", ENV.to_h.merge("HTTP_PROXY" => unreachable_proxy, "http_proxy" => unreachable_proxy))
+
+    connect_mock_client(auth_credentials: Weaviate::Auth.client_credentials(client_secret, scope: scope)) do |client|
+      client.collections.list_all
+    end
+    httpserver.check_assertions
+  end
+
   it "test_client_credentials_refresh" do
     token_requests = 0
     httpserver.expect_request("/auth").respond_with_handler do |_req|
