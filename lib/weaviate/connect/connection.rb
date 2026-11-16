@@ -405,14 +405,15 @@ module Weaviate
           end
           auth = Authentication.new(resp, @auth, make_client)
           @oauth = auth.auth_session
-          create_background_token_refresh(@auth.is_a?(Auth::ClientCredentials) ? auth : nil)
+          create_background_token_refresh
         elsif response.status_code == 404 && !@auth.nil?
           Warnings.auth_with_anon_weaviate
         end
       end
 
-      def create_background_token_refresh(auth = nil)
-        return if !@oauth.token.key?("refresh_token") && auth.nil?
+      # Renews the OIDC token shortly before it expires; nothing else renews it.
+      def create_background_token_refresh
+        return if !@oauth.token.key?("refresh_token") && !@auth.is_a?(Auth::ClientCredentials)
 
         cancel_background_token_refresh
         shutdown = Queue.new
@@ -427,10 +428,15 @@ module Weaviate
               if @oauth.token.key?("refresh_token")
                 @oauth.refresh_token!
               else
-                @oauth.token = auth.auth_session.token
+                # client credentials usually come without a refresh token => fetch a new token with the
+                # client secret this session holds
+                @oauth.fetch_token
               end
               refresh_in = (@oauth.token["expires_in"] || 60).to_i - 30
             rescue StandardError => e
+              # close() signals shutdown before it closes the connection under this request
+              break unless shutdown.empty?
+
               refresh_in = 1
               Warnings.token_refresh_failed(e)
             end
