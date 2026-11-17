@@ -183,6 +183,17 @@ RSpec.describe "REST feature namespaces (mock)" do
     expect(client.groups.oidc.get_known_group_names).to eq(%w[g1 g2])
   end
 
+  it "reports a Go zero time created_at as nil for static db users" do
+    no_auth_mock!
+    static_user = { "userId" => "admin-user", "roles" => ["admin"], "active" => true, "dbUserType" => "db_env_user",
+                    "createdAt" => "0001-01-01T00:00:00Z" }
+    httpserver.expect_request("/v1/users/db/admin-user", method: "GET").respond_with_json(static_user)
+    httpserver.expect_request("/v1/users/db", method: "GET").respond_with_json([static_user])
+
+    expect(client.users.db.get(user_id: "admin-user").created_at).to be_nil
+    expect(client.users.db.list_all.map(&:created_at)).to eq([nil])
+  end
+
   it "export, tokenization and replication are version gated" do
     no_auth_mock!
     expect { client.export.get_status(export_id: "e", backend: "s3") }

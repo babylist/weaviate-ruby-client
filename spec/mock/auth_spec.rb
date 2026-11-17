@@ -48,19 +48,43 @@ RSpec.describe "authentication against a mock Weaviate" do
     httpserver.check_assertions
   end
 
+  it "test_oidc_session_follows_connection_config" do
+    httpserver.expect_request("/auth").respond_with_json({ "access_token" => access_token, "expires_in" => 500 })
+    httpserver.expect_request("/v1/schema", headers: { "Authorization" => "Bearer #{access_token}" })
+              .respond_with_json({ "classes" => [] })
+    unreachable_proxy = "http://127.0.0.1:9"
+    stub_const("ENV", ENV.to_h.merge("HTTP_PROXY" => unreachable_proxy, "http_proxy" => unreachable_proxy))
+
+    connect_mock_client(auth_credentials: Weaviate::Auth.client_credentials(client_secret, scope: scope)) do |client|
+      client.collections.list_all
+    end
+    httpserver.check_assertions
+  end
+
   it "test_client_credentials_refresh" do
-    token_requests = 0
-    httpserver.expect_request("/auth").respond_with_handler do |_req|
-      token_requests += 1
+    hits = []
+    httpserver.expect_request("/auth").respond_with_handler do |req|
+      hits << URI.decode_www_form(req.body.to_s).to_h
       [200, { "content-type" => "application/json" }, JSON.generate({ "access_token" => access_token, "expires_in" => 1 })]
     end
     httpserver.expect_request("/v1/schema", headers: { "Authorization" => "Bearer #{access_token}" })
               .respond_with_json({ "classes" => [] })
+    allow(Weaviate::Connect::OAuth2Session).to receive(:new).and_call_original
+
     connect_mock_client(auth_credentials: Weaviate::Auth.client_credentials(client_secret, scope: scope)) do |client|
       client.collections.list_all
-      first = token_requests
-      sleep 3
-      expect(token_requests).to be > first
+      first = hits.length
+      sleep 3 # refresh interval is max(expires_in - 30, 1) -> 1s
+      expect(hits.length).to be > first
+      expect(hits[first..]).to all(include("grant_type" => "client_credentials", "client_secret" => client_secret))
+    end
+    expect(Weaviate::Connect::OAuth2Session).to have_received(:new).once
+  end
+
+  it "test_bearer_token_without_refresh_token_starts_no_refresher" do
+    before_threads = refresh_threads
+    connect_mock_client(auth_credentials: Weaviate::Auth.bearer_token(access_token, expires_in: 500)) do
+      expect(refresh_threads - before_threads).to be_empty
     end
   end
 

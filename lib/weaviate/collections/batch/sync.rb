@@ -452,6 +452,7 @@ module Weaviate
               cached = @objs_cache_lock.synchronize { @objs_cache.delete(error.uuid) }
               next if cached.nil?
 
+              @uuid_lookup_lock.synchronize { @uuid_lookup.delete(error.uuid) }
               err = ::Weaviate::Outputs::Batch::ErrorObject.new(message: error.error, object_: cached)
               result_objs += ::Weaviate::Outputs::Batch::BatchObjectReturn.new(_all_responses: [err],
                                                                                errors: { cached.index => err })

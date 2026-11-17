@@ -174,9 +174,11 @@ module Weaviate
         field :indexSearchable, :bool, as: :index_searchable
         field :indexRangeFilters, :bool, as: :index_range_filters
         field :nestedProperties, [:union, Property, [:list, Property]], as: :nested_properties
+        # Only applies with the legacy `vectorizer_config`. For `vector_config`, use `source_properties` instead.
         field :skip_vectorization, :bool, default: false
         field :textAnalyzer, TextAnalyzerConfigCreate, as: :text_analyzer
         field :tokenization, Tokenization
+        # Only applies with the legacy `vectorizer_config`.
         field :vectorize_property_name, :bool, default: true
 
         def after_initialize

@@ -142,10 +142,13 @@ module Weaviate
         unless @embedded_db.nil?
           begin
             wait_for_weaviate(10)
-          rescue Exceptions::WeaviateStartUpError
+          rescue Exceptions::WeaviateStartUpError => e
             @embedded_db.stop
             @connected = false
-            raise
+            hint = @embedded_db.existing_data_hint
+            raise if hint.nil?
+
+            raise Exceptions::WeaviateStartUpError, "#{e.message} #{hint}"
           end
         end
 
@@ -256,9 +259,15 @@ module Weaviate
       rescue ::GRPC::PermissionDenied => e
         raise Exceptions::InsufficientPermissionsError, e
       rescue ::GRPC::BadStatus => e
-        raise Exceptions::WeaviateQueryError.new(e.details.to_s, "GRPC search")
+        raise search_error(request, e.details.to_s)
       rescue Exceptions::WeaviateRetryError => e
-        raise Exceptions::WeaviateQueryError.new(e.message, "GRPC search")
+        raise search_error(request, e.message)
+      end
+
+      def search_error(request, message)
+        return Exceptions::WeaviateGenerativeQueryError.new(message) if request.has_generative?
+
+        Exceptions::WeaviateQueryError.new(message, "GRPC search")
       end
 
       # Returns { index => error message } for failed objects.
@@ -396,14 +405,15 @@ module Weaviate
           end
           auth = Authentication.new(resp, @auth, make_client)
           @oauth = auth.auth_session
-          create_background_token_refresh(@auth.is_a?(Auth::ClientCredentials) ? auth : nil)
+          create_background_token_refresh
         elsif response.status_code == 404 && !@auth.nil?
           Warnings.auth_with_anon_weaviate
         end
       end
 
-      def create_background_token_refresh(auth = nil)
-        return if !@oauth.token.key?("refresh_token") && auth.nil?
+      # Renews the OIDC token shortly before it expires; nothing else renews it.
+      def create_background_token_refresh
+        return if !@oauth.token.key?("refresh_token") && !@auth.is_a?(Auth::ClientCredentials)
 
         cancel_background_token_refresh
         shutdown = Queue.new
@@ -418,10 +428,15 @@ module Weaviate
               if @oauth.token.key?("refresh_token")
                 @oauth.refresh_token!
               else
-                @oauth.token = auth.auth_session.token
+                # client credentials usually come without a refresh token => fetch a new token with the
+                # client secret this session holds
+                @oauth.fetch_token
               end
               refresh_in = (@oauth.token["expires_in"] || 60).to_i - 30
             rescue StandardError => e
+              # close() signals shutdown before it closes the connection under this request
+              break unless shutdown.empty?
+
               refresh_in = 1
               Warnings.token_refresh_failed(e)
             end

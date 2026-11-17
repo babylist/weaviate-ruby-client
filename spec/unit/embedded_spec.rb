@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "digest"
+require "fileutils"
 require "rubygems/package"
 require "stringio"
 require "tmpdir"
@@ -189,6 +190,40 @@ RSpec.describe Weaviate::Embedded do
         expect do
           Weaviate::Embedded::EmbeddedV4.new(Weaviate::Embedded::EmbeddedOptions.new(version: "https://x.org/w.exe", **opts))
         end.to raise_error(Weaviate::Exceptions::WeaviateEmbeddedInvalidVersionError)
+      end
+    end
+  end
+
+  describe "existing data hint" do
+    def embedded_with_data_path(dir)
+      opts = Weaviate::Embedded::EmbeddedOptions.new(binary_path: File.join(dir, "b"), persistence_data_path: dir,
+                                                     version: "1.30.1")
+      allow(described_class).to receive_messages(platform_system: "Linux", platform_machine: "x86_64")
+      Weaviate::Embedded::EmbeddedV4.new(opts)
+    end
+
+    def launch_without_process(embedded)
+      allow(Process).to receive(:spawn).and_return(nil)
+      allow(embedded).to receive(:ensure_weaviate_binary_exists)
+      allow(embedded).to receive(:wait_till_listening)
+      allow(embedded).to receive(:at_exit)
+      embedded.start
+    end
+
+    it "test_embedded_startup_with_data_from_other_port" do
+      Dir.mktmpdir do |dir|
+        FileUtils.mkdir_p(File.join(dir, "raft"))
+        embedded = embedded_with_data_path(dir)
+        launch_without_process(embedded)
+        expect(embedded.existing_data_hint).to include("persistence_data_path").and include(dir)
+      end
+    end
+
+    it "gives no hint for a fresh data path" do
+      Dir.mktmpdir do |dir|
+        embedded = embedded_with_data_path(dir)
+        launch_without_process(embedded)
+        expect(embedded.existing_data_hint).to be_nil
       end
     end
   end

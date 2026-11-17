@@ -128,6 +128,14 @@ module Weaviate
     end
     WeaviateQueryException = WeaviateQueryError
 
+    # Raised if a generative query to Weaviate fails. It remains a WeaviateQueryError so existing query error
+    # handlers continue to work; the original server error is available through #message.
+    class WeaviateGenerativeQueryError < WeaviateQueryError
+      def initialize(message)
+        super(message, "GRPC search")
+      end
+    end
+
     class WeaviateBatchError < WeaviateQueryError
       def initialize(message)
         super(message, "GRPC batch")

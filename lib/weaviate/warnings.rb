@@ -173,7 +173,7 @@ module Weaviate
 
       def skip_vectorization_ignored_with_vector_config(property_name)
         emit("Dep032: `skip_vectorization` on property \"#{property_name}\" has no effect when the collection is " \
-             "configured with `vector_config`. Use `source_properties` on the vector config instead.")
+             "created with `vector_config`. Use `source_properties` on the vector to choose which properties are vectorized.")
       end
 
       def create_skips_vectors_without_index(vectors)
