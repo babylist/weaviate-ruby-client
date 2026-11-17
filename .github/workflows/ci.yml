@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  specs:
+    name: Unit + mock specs
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      # Ruby version comes from .ruby-version (matches babylist-web)
+      - uses: ruby/setup-ruby@26e5b7d197ebf60545ee9667bcbace0be11ccaec # v1.334.0
+        with:
+          bundler-cache: true
+      - run: bundle exec rspec
+
+  integration:
+    name: Integration specs (shard ${{ matrix.shard }}/4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    env:
+      # same server version the Python client's CI runs against
+      WEAVIATE_VERSION: "1.40.2"
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: ruby/setup-ruby@26e5b7d197ebf60545ee9667bcbace0be11ccaec # v1.334.0
+        with:
+          bundler-cache: true
+      # Full docker-compose stack from ci/ (contextionary, RBAC, backup, cluster, proxy, ...).
+      # Specs needing secrets (OKTA_*, WCS_*, OPENAI_APIKEY, ...) skip when they are unset.
+      - run: bin/integration docker "$WEAVIATE_VERSION"
+        env:
+          SHARD: ${{ matrix.shard }}/4

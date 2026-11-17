@@ -624,11 +624,11 @@ RSpec.describe "collection", :integration do
   it "test_add_property" do
     collection = collection_factory(vector_config: self_provided,
                                     properties: [property.new(name: "name", data_type: data_type::TEXT)])
-    uuid1 = collection.data.insert({ "name" => "first" })
+    first_uuid = collection.data.insert({ "name" => "first" })
     collection.config.add_property(property.new(name: "number", data_type: data_type::INT))
-    uuid2 = collection.data.insert({ "name" => "second", "number" => 5 })
-    obj1 = collection.query.fetch_object_by_id(uuid1)
-    obj2 = collection.query.fetch_object_by_id(uuid2)
+    second_uuid = collection.data.insert({ "name" => "second", "number" => 5 })
+    obj1 = collection.query.fetch_object_by_id(first_uuid)
+    obj2 = collection.query.fetch_object_by_id(second_uuid)
     expect(obj1.properties).to include("name")
     expect(obj2.properties).to include("name")
     expect(obj2.properties).to include("number")
@@ -660,14 +660,14 @@ RSpec.describe "collection", :integration do
   it "test_add_reference" do
     collection = collection_factory(vector_config: self_provided,
                                     properties: [property.new(name: "name", data_type: data_type::TEXT)])
-    uuid1 = collection.data.insert({ "name" => "first" })
+    first_uuid = collection.data.insert({ "name" => "first" })
     collection.config.add_reference(reference_property.new(name: "self", target_collection: collection.name))
-    uuid2 = collection.data.insert({ "name" => "second" }, references: { "self" => uuid1 })
+    second_uuid = collection.data.insert({ "name" => "second" }, references: { "self" => first_uuid })
     obj1 = collection.query.fetch_object_by_id(
-      uuid1, return_properties: ["name"], return_references: q::QueryReference.new(link_on: "self")
+      first_uuid, return_properties: ["name"], return_references: q::QueryReference.new(link_on: "self")
     )
     obj2 = collection.query.fetch_object_by_id(
-      uuid2, return_properties: ["name"], return_references: q::QueryReference.new(link_on: "self")
+      second_uuid, return_properties: ["name"], return_references: q::QueryReference.new(link_on: "self")
     )
     expect(obj1.properties).to include("name")
     expect(obj1.references).to eq({})
