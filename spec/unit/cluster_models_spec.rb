@@ -23,6 +23,18 @@ RSpec.describe Weaviate::Outputs::Replication::ReplicateOperationStatus do
   end
 end
 
+RSpec.describe Weaviate::Outputs::Replication::ReplicateOperation do
+  it "parses the Id-suffixed fields Weaviate 1.31 returns" do
+    op = described_class.from_weaviate(
+      { "id" => "11111111-2222-3333-4444-555555555555", "collection" => "C", "shardId" => "s",
+        "sourceNodeId" => "a", "targetNodeId" => "b", "transferType" => "MOVE",
+        "status" => { "state" => "READY", "errors" => [] } }, false
+    )
+
+    expect([op.shard, op.source_node, op.target_node, op.transfer_type]).to eq(%w[s a b MOVE])
+  end
+end
+
 RSpec.describe Weaviate::Cluster::ConvertFromREST do
   it "fills verbose defaults for nodes without shards or stats" do
     nodes = described_class.nodes_verbose([{ "status" => "TIMEOUT", "shards" => nil, "name" => "node1" }])
