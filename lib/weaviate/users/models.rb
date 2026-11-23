@@ -34,9 +34,6 @@ module Weaviate
       attribute :user_type, default: UserTypes::OIDC
     end
 
-    # Go's zero time value, returned by the server when a timestamp is not set.
-    GO_ZERO_TIME = Time.utc(1, 1, 1, 0, 0, 0)
-
     def self.parse_time(value)
       return nil if value.nil?
 
@@ -48,8 +45,7 @@ module Weaviate
     def self.parse_optional_timestamp(value)
       return nil if value.nil?
 
-      dt = parse_time(value)
-      dt == GO_ZERO_TIME ? nil : dt
+      ::Weaviate::Util.zero_time_to_none(parse_time(value))
     end
 
     def self.user_db_from_weaviate(user)

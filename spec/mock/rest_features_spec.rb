@@ -183,6 +183,24 @@ RSpec.describe "REST feature namespaces (mock)" do
     expect(client.groups.oidc.get_known_group_names).to eq(%w[g1 g2])
   end
 
+  {
+    "db" => [->(c) { c.users.db }, { "userType" => "db" }],
+    "oidc" => [->(c) { c.users.oidc }, { "userType" => "oidc" }],
+    "deprecated" => [->(c) { c.users }, {}]
+  }.each do |id, (namespace, user_type)|
+    [["r1", ["r1"]], [%w[r1 r2], %w[r1 r2]]].each do |role_names, sent|
+      it "revoke_roles sends the user type [#{id}-#{role_names.inspect}]" do
+        no_auth_mock!
+        httpserver.expect_request("/v1/authz/users/u1/revoke", method: "POST",
+                                                               json: { "roles" => sent }.merge(user_type))
+                  .respond_with_json({})
+
+        allow(Weaviate::Warnings).to receive(:emit)
+        expect(namespace.call(client).revoke_roles(user_id: "u1", role_names: role_names)).to be_nil
+      end
+    end
+  end
+
   it "reports a Go zero time created_at as nil for static db users" do
     no_auth_mock!
     static_user = { "userId" => "admin-user", "roles" => ["admin"], "active" => true, "dbUserType" => "db_env_user",

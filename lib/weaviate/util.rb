@@ -293,6 +293,15 @@ module Weaviate
       Time.parse(string)
     end
 
+    # Weaviate sends Go's zero time (0001-01-01T00:00:00Z) for timestamps it has not set yet,
+    # for example `completedAt` while a backup or export is still running.
+    def zero_time_to_none(value)
+      return nil if !value.nil? && [value.year, value.month, value.day, value.hour, value.min, value.sec,
+                                    value.nsec] == [1, 1, 1, 0, 0, 0, 0]
+
+      value
+    end
+
     def escape_string(value)
       ERB::Util.url_encode(value)
     end

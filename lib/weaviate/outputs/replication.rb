@@ -11,6 +11,10 @@ module Weaviate
       ReplicateOperationWithoutHistory = ::Weaviate::Cluster::ReplicateOperationWithoutHistory
       ReplicateOperationState = ::Weaviate::Cluster::ReplicateOperationState
       ReplicateOperationStatus = ::Weaviate::Cluster::ReplicateOperationStatus
+      ReplicationScalePlan = ::Weaviate::Cluster::ReplicationScalePlan
+      ShardScaleActions = ::Weaviate::Cluster::ShardScaleActions
+      ReplicaAddition = ::Weaviate::Cluster::ReplicaAddition
+      ReplicationScaleApplyResult = ::Weaviate::Cluster::ReplicationScaleApplyResult
     end
   end
 end

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "delegate"
+
 # Port of test/collection/test_filter.py
 RSpec.describe Weaviate::Classes::Query::Filter do
   let(:q) { Weaviate::Classes::Query }
@@ -189,6 +191,75 @@ RSpec.describe Weaviate::Classes::Query::Filter do
           { "operator" => "Equal", "path" => ["n"], "valueInt" => 1 }
         ]
       )
+    end
+  end
+
+  # Ruby has no tuple: an array-like wrapper (responds to `to_ary`, not an Array) stands in for
+  # the non-list Sequence the Python tests use.
+  def array_like(values) = SimpleDelegator.new(values)
+
+  # (values, gRPC array field, REST array key) for each supported filter value type
+  sequence_filter_values = {
+    "text" => [%w[a b], :value_text_array, "valueTextArray"],
+    "int" => [[1, 2], :value_int_array, "valueIntArray"],
+    "float" => [[1.5, 2.5], :value_number_array, "valueNumberArray"],
+    "bool" => [[true, false], :value_boolean_array, "valueBooleanArray"],
+    "uuid" => [%w[00000000-0000-0000-0000-000000000001 00000000-0000-0000-0000-000000000002],
+               :value_text_array, "valueTextArray"],
+    "date" => [[Time.utc(2023, 1, 1), Time.utc(2024, 1, 1)], :value_text_array, "valueDateArray"]
+  }
+
+  %i[contains_any contains_all contains_none].each do |method|
+    sequence_filter_values.each do |id, (values, grpc_field, rest_key)|
+      it "test_sequence_filter_values_to_grpc[#{id}-#{method}]" do
+        from_list = q::Filter.by_property("test").public_send(method, values)
+        from_array_like = q::Filter.by_property("test").public_send(method, array_like(values))
+
+        as_list = Weaviate::Collections::Grpc::FilterToGRPC.convert(from_list)
+        as_array_like = Weaviate::Collections::Grpc::FilterToGRPC.convert(from_array_like)
+
+        expect(as_list.public_send(grpc_field)).not_to be_nil, "the list form must send the values"
+        expect(as_array_like).to eq(as_list), "an array-like value must serialise like the equivalent list"
+      end
+
+      it "test_sequence_filter_values_to_rest[#{id}-#{method}]" do
+        from_list = q::Filter.by_property("test").public_send(method, values)
+        from_array_like = q::Filter.by_property("test").public_send(method, array_like(values))
+
+        as_list = Weaviate::Collections::Grpc::FilterToREST.convert(from_list)
+
+        expect(as_list).to include(rest_key), "the list form must send the values"
+        expect(Weaviate::Collections::Grpc::FilterToREST.convert(from_array_like)).to eq(as_list),
+                                                                                     "an array-like value must serialise like the equivalent list"
+      end
+    end
+  end
+
+  ["test", ""].each do |value|
+    it "test_string_filter_values_are_not_sequences[#{value.inspect}]" do
+      filter = q::Filter.by_property("test").equal(value)
+
+      expect(Weaviate::Collections::Grpc::FilterToGRPC.convert(filter).value_text).to eq(value)
+      expect(Weaviate::Collections::Grpc::FilterToREST.convert(filter))
+        .to eq({ "operator" => "Equal", "path" => ["test"], "valueText" => value })
+    end
+  end
+
+  it "test_empty_tuple_grpc_conversion" do
+    # The gRPC converter treats an empty array-like value like an empty list.
+    fv = q::FilterValue.new(target: "test", value: array_like([]), operator: q::Operator::EQUAL)
+    expect { Weaviate::Collections::Grpc::FilterToGRPC.convert(fv) }.to raise_error(invalid)
+  end
+
+  it "test_empty_tuple_rest_conversion" do
+    # The REST converter treats an empty array-like value like an empty list.
+    fv = q::FilterValue.new(target: "test", value: array_like([]), operator: q::Operator::EQUAL)
+    expect { Weaviate::Collections::Grpc::FilterToREST.convert(fv) }.to raise_error(invalid)
+  end
+
+  %i[contains_any contains_all contains_none].each do |method|
+    it "test_empty_tuple_input[#{method}]" do
+      expect { q::Filter.by_property("test").public_send(method, array_like([])) }.to raise_error(invalid)
     end
   end
 end

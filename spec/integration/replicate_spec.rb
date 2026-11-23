@@ -50,6 +50,72 @@ module Batch5Specs
       [op_id, src_node, tgt_node, shard]
     end
 
+    # Python's `scale_collection` fixture: a one-shard collection at factor 1. Its replication
+    # operations are removed after the test, before collection_factory deletes it.
+    define_method(:scale_collection) do
+      client = replicate_client
+      server_version = Weaviate::ServerVersion.from_string(client.get_meta["version"])
+      unless server_version.is_at_least_any(*Weaviate::Cluster::Replicate::SCALE_PLAN_MIN_VERSIONS)
+        skip("Replication scale plans are unavailable on this server version. Min. required versions: " \
+             "#{Weaviate::Cluster::Replicate::SCALE_PLAN_MIN_VERSIONS}")
+      end
+
+      @scale_collection = collection_factory(
+        properties: [Config::Property.new(name: "name", data_type: Config::DataType::TEXT)],
+        ports: ports,
+        sharding_config: Config::Configure.sharding(desired_count: 1),
+        replication_config: Config::Configure.replication(factor: 1)
+      )
+    end
+
+    after do
+      next if @scale_collection.nil?
+
+      replicate_client.cluster.replications.query(collection: @scale_collection.name).each do |operation|
+        replicate_client.cluster.replications.delete(uuid: operation.uuid)
+      end
+    end
+
+    it "test_generate_and_apply_scale_plan" do
+      collection = scale_collection
+      desired_replicas = 3
+      object_id = collection.data.insert({ "name" => "Alice" })
+
+      plan = replicate_client.cluster.replications.generate_scale_plan(
+        collection: collection.name, replication_factor: desired_replicas
+      )
+      result = replicate_client.cluster.replications.apply_scale_plan(plan: plan)
+      expect(result.operation_ids.length).to eq(desired_replicas - 1)
+
+      deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 60
+      pending_ids = result.operation_ids.dup
+      while !pending_ids.empty? && Process.clock_gettime(Process::CLOCK_MONOTONIC) < deadline
+        pending_ids.dup.each do |operation_id|
+          operation = replicate_client.cluster.replications.get(uuid: operation_id)
+          next if operation.nil?
+
+          expect(operation.status.errors).to eq([]), operation.inspect
+          expect(operation.status.state).not_to eq(Weaviate::Outputs::Replication::ReplicateOperationState::CANCELLED)
+          if operation.status.state == Weaviate::Outputs::Replication::ReplicateOperationState::READY
+            pending_ids.delete(operation_id)
+          end
+        end
+        sleep(0.1)
+      end
+      raise "Scale operations did not reach READY within 60s: #{pending_ids.inspect}" unless pending_ids.empty?
+
+      # READY follows the Raft placement update; this read goes to the leader.
+      state = replicate_client.cluster.query_sharding_state(collection: collection.name)
+      expect(state).not_to be_nil
+      expect(state.shards.length).to eq(1)
+      expect(state.shards[0].replicas.length).to eq(desired_replicas)
+
+      obj = collection.query.fetch_object_by_id(object_id)
+      expect(obj).not_to be_nil
+      expect(obj.uuid).to eq(object_id)
+      expect(obj.properties).to eq({ "name" => "Alice" })
+    end
+
     it "test_replicate_and_get" do
       collection = replicate_collection
       op_id, src_node, tgt_node, shard = replicate_first_shard(collection)

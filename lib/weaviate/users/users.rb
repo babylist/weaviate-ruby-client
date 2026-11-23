@@ -49,9 +49,10 @@ module Weaviate
         nil
       end
 
-      def revoke_roles_from_user(roles, user_id, _user_type)
-        # Mirrors the Python client, which only sends the role names here.
-        @connection.post("/authz/users/#{escape(user_id)}/revoke", weaviate_object: { "roles" => roles },
+      def revoke_roles_from_user(roles, user_id, user_type)
+        payload = { "roles" => roles }
+        payload["userType"] = user_type unless user_type.nil?
+        @connection.post("/authz/users/#{escape(user_id)}/revoke", weaviate_object: payload,
                                                                    error_msg: "Could not revoke roles #{roles} from user #{user_id}",
                                                                    status_codes: codes([200], "Revoke roles from user"))
         nil

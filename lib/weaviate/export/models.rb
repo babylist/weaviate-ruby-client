@@ -95,7 +95,7 @@ module Weaviate
 
       def after_initialize
         super
-        self.completed_at = ::Weaviate::Export.parse_time(completed_at)
+        self.completed_at = ::Weaviate::Util.zero_time_to_none(::Weaviate::Export.parse_time(completed_at))
       end
 
       def self.weaviate_kwargs(data)

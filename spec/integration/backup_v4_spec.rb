@@ -483,6 +483,10 @@ module Batch5Specs
 
       backups = client.backup.list_backups(backend: backend)
       expect(backups.map { |b| b.backup_id.downcase }).to include(backup_id.downcase)
+      backup = backups.find { |b| b.backup_id.downcase == backup_id.downcase }
+      if [backup_status::STARTED, backup_status::TRANSFERRING].include?(backup.status)
+        expect(backup.completed_at).to be_nil
+      end
 
       # wait until created
       wait_for_status(

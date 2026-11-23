@@ -58,14 +58,15 @@ module Weaviate
           if include_history && !data["statusHistory"].nil?
             data["statusHistory"].map { |s| ReplicateOperationStatus.from_weaviate(s) }
           end
+        # Weaviate 1.31 uses Id-suffixed shard/node fields and transferType.
         new(
           collection: data["collection"],
-          shard: data["shard"],
-          source_node: data["sourceNode"],
+          shard: data.key?("shard") ? data["shard"] : data["shardId"],
+          source_node: data.key?("sourceNode") ? data["sourceNode"] : data["sourceNodeId"],
           status: ReplicateOperationStatus.from_weaviate(data["status"]),
           status_history: history,
-          target_node: data["targetNode"],
-          transfer_type: ReplicationType.from(data["type"]),
+          target_node: data.key?("targetNode") ? data["targetNode"] : data["targetNodeId"],
+          transfer_type: ReplicationType.from(data.key?("type") ? data["type"] : data["transferType"]),
           uuid: ::Weaviate::Util.get_valid_uuid(data["id"])
         )
       end
@@ -73,6 +74,40 @@ module Weaviate
     # Python generic aliases of _ReplicateOperation.
     ReplicateOperationWithHistory = ReplicateOperation
     ReplicateOperationWithoutHistory = ReplicateOperation
+
+    # A replica to add to a shard.
+    #
+    # The replica is copied from +source_node+, or created empty if it is nil.
+    # A source node also listed in the shard's +remove_nodes+ makes this a move.
+    class ReplicaAddition < ::Weaviate::Model
+      attribute :target_node
+      attribute :source_node, default: nil
+    end
+
+    # Editable replica additions and removals for a shard.
+    #
+    # Target nodes in +add_nodes+ must be unique within the shard.
+    class ShardScaleActions < ::Weaviate::Model
+      attribute :remove_nodes
+      attribute :add_nodes
+    end
+
+    # An editable replication scale plan for a collection.
+    class ReplicationScalePlan < ::Weaviate::Model
+      attribute :plan_id
+      attribute :collection
+      attribute :shard_scale_actions
+    end
+
+    # An accepted replication scale plan and its started operations.
+    #
+    # Use `cluster.replications.get` to inspect operation status. Removal-only plans may
+    # have no operation IDs; inspect shard placement to confirm their completion.
+    class ReplicationScaleApplyResult < ::Weaviate::Model
+      attribute :plan_id
+      attribute :collection
+      attribute :operation_ids
+    end
 
     # A shard and the nodes holding its replicas.
     class ShardReplicas < ::Weaviate::Model
