@@ -147,7 +147,7 @@ module Weaviate
       def after_initialize
         self.status = BackupStatus.from(status)
         self.started_at = ::Weaviate::Backup.parse_time(started_at)
-        self.completed_at = ::Weaviate::Backup.parse_time(completed_at)
+        self.completed_at = ::Weaviate::Util.zero_time_to_none(::Weaviate::Backup.parse_time(completed_at))
       end
 
       def self.from_weaviate(data)

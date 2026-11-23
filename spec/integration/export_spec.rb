@@ -72,7 +72,11 @@ RSpec.describe "export", :integration do # rubocop:disable RSpec/DescribeClass
     loop do
       status = client.export.get_status(export_id: export_id, backend: backend)
       expect([s::STARTED, s::TRANSFERRING, s::SUCCESS]).to include(status.status)
-      break if status.status == s::SUCCESS
+      if status.status == s::SUCCESS
+        expect(status.completed_at).not_to be_nil
+        break
+      end
+      expect(status.completed_at).to be_nil
 
       sleep(0.1)
     end

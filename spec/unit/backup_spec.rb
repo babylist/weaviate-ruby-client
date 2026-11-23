@@ -34,6 +34,20 @@ RSpec.describe Weaviate::Backup::BackupListReturn do
       expect(described_class.from_weaviate(list_entry(**overrides)).incremental_base_backup_id).to be_nil
     end
   end
+
+  it "test_list_return_maps_unset_completed_at_to_none" do
+    # A running backup is listed with Go's zero time as its completedAt.
+    backup = described_class.from_weaviate(list_entry(status: "STARTED", completedAt: "0001-01-01T00:00:00.000Z"))
+
+    expect(backup.completed_at).to be_nil
+    expect(backup.started_at).to eq(Time.utc(2026, 8, 1, 10, 0, 0))
+  end
+
+  it "test_list_return_keeps_set_completed_at" do
+    backup = described_class.from_weaviate(list_entry)
+
+    expect(backup.completed_at).to eq(Time.utc(2026, 8, 1, 10, 5, 0))
+  end
 end
 
 RSpec.describe "Weaviate::Backup config models" do
