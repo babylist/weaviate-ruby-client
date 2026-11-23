@@ -375,6 +375,7 @@ module Batch5Specs
       client.roles.delete(names)
       client.roles.create(role_name: names, permissions: RBAC::Permissions.roles(role: "test", read: true))
 
+      client.users.db.delete(user_id: names)
       client.users.db.create(user_id: names)
 
       client.users.db.assign_roles(user_id: names, role_names: names)
@@ -382,6 +383,13 @@ module Batch5Specs
       expect(assigned_users.length).to eq(1)
       expect(assigned_users[0].user_id).to eq(names)
       expect(assigned_users[0].user_type).to eq(Models::UserTypes::DB_DYNAMIC)
+
+      # An OIDC user with the same id keeps the role when the db user's is revoked.
+      client.users.oidc.assign_roles(user_id: names, role_names: names)
+      client.users.db.revoke_roles(user_id: names, role_names: names)
+      assigned_users = client.roles.get_user_assignments(names)
+      expect(assigned_users.length).to eq(1)
+      expect(assigned_users[0].user_type).to eq(Models::UserTypes::OIDC)
 
       client.roles.delete(names)
       client.users.db.delete(user_id: names)
