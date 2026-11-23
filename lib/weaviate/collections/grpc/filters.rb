@@ -21,9 +21,19 @@ module Weaviate
           and_or_not_filter(weav_filter)
         end
 
+        # Return the filter value as an Array if it holds multiple values, else nil. Any array-like
+        # value (one that implements `to_ary`) is valid input; Strings are single filter values.
+        def to_value_list(value)
+          return nil if value.is_a?(String)
+          return value.to_ary.to_a if value.respond_to?(:to_ary)
+
+          nil
+        end
+
         def value_filter(weav_filter)
           value = weav_filter.value
-          raise ::Weaviate::Exceptions::WeaviateInvalidInputError, Q::EMPTY_LIST_FILTER_MSG if value.is_a?(Array) && value.empty?
+          values = to_value_list(value)
+          raise ::Weaviate::Exceptions::WeaviateInvalidInputError, Q::EMPTY_LIST_FILTER_MSG if values&.empty?
 
           operator = Q::Operator.to_grpc(weav_filter.operator)
           target = to_target(weav_filter.target)
@@ -36,10 +46,10 @@ module Weaviate
             value_text: filter_to_text(value),
             value_int: value.is_a?(Integer) ? value : nil,
             value_number: value.is_a?(Float) ? value : nil,
-            value_boolean_array: filter_to_bool_list(value),
-            value_int_array: filter_to_int_list(value),
-            value_number_array: filter_to_float_list(value),
-            value_text_array: filter_to_text_list(value),
+            value_boolean_array: filter_to_bool_list(values),
+            value_int_array: filter_to_int_list(values),
+            value_number_array: filter_to_float_list(values),
+            value_text_array: filter_to_text_list(values),
             value_geo: filter_to_geo(value),
             target: target
           )
@@ -90,33 +100,33 @@ module Weaviate
           nil
         end
 
-        def filter_to_text_list(value)
-          return nil unless value.is_a?(Array) && !value.empty?
+        def filter_to_text_list(values)
+          return nil if values.nil? || values.empty?
 
-          first = value[0]
+          first = values[0]
           if first.is_a?(String) || first.is_a?(Symbol)
-            ::Weaviate::V1::TextArray.new(values: value.map(&:to_s))
+            ::Weaviate::V1::TextArray.new(values: values.map(&:to_s))
           elsif time?(first)
-            ::Weaviate::V1::TextArray.new(values: value.map { |d| time_to_string(d) })
+            ::Weaviate::V1::TextArray.new(values: values.map { |d| time_to_string(d) })
           end
         end
 
-        def filter_to_bool_list(value)
-          return nil unless value.is_a?(Array) && !value.empty? && [true, false].include?(value[0])
+        def filter_to_bool_list(values)
+          return nil if values.nil? || values.empty? || ![true, false].include?(values[0])
 
-          ::Weaviate::V1::BooleanArray.new(values: value)
+          ::Weaviate::V1::BooleanArray.new(values: values)
         end
 
-        def filter_to_float_list(value)
-          return nil unless value.is_a?(Array) && !value.empty? && value[0].is_a?(Float)
+        def filter_to_float_list(values)
+          return nil if values.nil? || values.empty? || !values[0].is_a?(Float)
 
-          ::Weaviate::V1::NumberArray.new(values: value.map { |v| Float(v) })
+          ::Weaviate::V1::NumberArray.new(values: values.map { |v| Float(v) })
         end
 
-        def filter_to_int_list(value)
-          return nil unless value.is_a?(Array) && !value.empty? && value[0].is_a?(Integer)
+        def filter_to_int_list(values)
+          return nil if values.nil? || values.empty? || !values[0].is_a?(Integer)
 
-          ::Weaviate::V1::IntArray.new(values: value)
+          ::Weaviate::V1::IntArray.new(values: values)
         end
 
         def and_or_not_filter(weav_filter)
@@ -169,17 +179,18 @@ module Weaviate
           return { "valueInt" => value } if value.is_a?(Integer)
           return { "valueNumber" => value } if value.is_a?(Float)
 
-          if value.is_a?(Array)
-            raise ::Weaviate::Exceptions::WeaviateInvalidInputError, Q::EMPTY_LIST_FILTER_MSG if value.empty?
+          values = FilterToGRPC.to_value_list(value)
+          unless values.nil?
+            raise ::Weaviate::Exceptions::WeaviateInvalidInputError, Q::EMPTY_LIST_FILTER_MSG if values.empty?
 
-            first = value[0]
-            return { "valueTextArray" => value } if first.is_a?(String)
+            first = values[0]
+            return { "valueTextArray" => values } if first.is_a?(String)
             if FilterToGRPC.time?(first)
-              return { "valueDateArray" => value.map { |v| ::Weaviate::Util.datetime_to_string(v) } }
+              return { "valueDateArray" => values.map { |v| ::Weaviate::Util.datetime_to_string(v) } }
             end
-            return { "valueBooleanArray" => value } if [true, false].include?(first)
-            return { "valueIntArray" => value } if first.is_a?(Integer)
-            return { "valueNumberArray" => value } if first.is_a?(Float)
+            return { "valueBooleanArray" => values } if [true, false].include?(first)
+            return { "valueIntArray" => values } if first.is_a?(Integer)
+            return { "valueNumberArray" => values } if first.is_a?(Float)
           end
           raise ArgumentError, "Unknown filter value type: #{value.class}"
         end
